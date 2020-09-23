@@ -1,0 +1,88 @@
+REAL DEBUGGING OUTPUT:
+
+00000000000000000000000001011000 // text section size (22 lines/words = 88 bytes)
+00000000000000000000000000001100 // data section size (3 words = 12 bytes)
+.text
+main:
+00000010001000001000100000100100 // and $17, $17, $0, PC = 0x00
+00000010010000001001000000100100 // and $18, $18, $0, PC = 0x04
+0011110000001000 0001000000000000 // la $8, data1, PC = 0x08 ( first 4 bytes, no ORI necessary)
+0011110000001001 0001000000000000 // la $9, data2, PC = 0x0C ( 4 bytes later)
+0011010100101001 0000000000000100 // ori PC = 0x10
+000000 01010000000101000000100100 // and $10, $10, $0, PC = 0x14
+lab1:
+00000001011000000101100000100100 // and $11, $11, $0, PC = 0x18
+lab2:
+00100110001100010000000000000001 // addiu $17, $17, 0x1, PC = 0x1C
+00100101011010110000000000000001 // addiu $11, $11, 0x1, PC = 0x20
+00000001001000000100100000100101 // or $9, $9, $0, PC = 0x24
+00010101011010001111111111111100 // bne $11, $8, lab2, PC = 0x28 (SEE NOTE BELOW for Branches)
+lab3:
+00100110010100100000000000000010 // addiu $18, $18, 0x2, PC = 0x2C
+00100101011010110000000000000001 // addiu $11, $11, 1, PC = 0x30
+00000000000100011001000001000000 // sll $18, $17, 1, PC = 0x34
+00000000000100101000100001000010 // srl $17, $18, 1, PC = 0x38
+00000010001100101001100000100100 // and $19, $17, $18, PC = 0x3C
+00010101011010011111111111111010 // bne $11, $9, lab3, PC = 0x40
+lab4:
+00000000101111110010100000100001 // addu $5, $5, $31, PC = 0x44
+00000010001100101000000000100111 // nor $16, $17, $18, PC = 0x48
+00010001010010000000000000000001 // beq $10, $8, lab5, PC = 0x4C
+00001000000100000000000000000110 // j lab1, PC = 0x50
+lab5:
+00110110000100001111000011110000 // ori $16, $16, 0xf0f0, PC = 0x54
+00000000000000000000000001100100 // data1: .word 100, PC = 0x58
+00000000000000000000000011001000 // data2: .word 200, PC = 0x5C
+00010010001101000101011001111000 // data3: .word 0x12345678, PC = 0x60
+
+------------------------------------------------------------------------------
+Branches Note (from the R4400 documentation):
+
+BNE/BEQ: Use relative offsets
+
+A branch has the following format:
+BNE rs rt offset
+6 5 5 16
+
+example: bne $11, $8, lab2
+
+target_address = PC + 4 (offset*4)
+
+target_address: lab2 PC, in this case 0x1C
+PC: is bne $11, $8, lab2 instruction PC, in this case 0x28
+offset: what you need to calculate.
+
+offset = (0x1C - 0x28)/4        // use two's complement
+offset = 0xFC (-4 in decimal)
+number needs to be sign-extended t0 16 bits, so
+offset = 0xFFFC 
+or 
+offset = 1111 1111 1111 1100 
+
+------------------------------------------------------------------------------
+Jumps
+J: Use Absolute values of address
+opcode offset
+000010 00 0001 0000 0000 0000 0000 0110 // j lab1. THIS is what we want
+
+Formula: (.text_address + PC) >> 2
+
+// lab1 instruction is at: PC = 0x18
+// ......
+// ......
+// j lab1 instruction is at: PC = 0x50
+
+Remember instructions are words aligned so the 2 LSB are not used.
+Add the instruction PC to text directive which begins at 0x400000 and shift 2 to the right
+(0x400000 | 0x18) >> 2 
+
+   0100 0000 0000 0000 0000 0000
+OR                     0001 1000
+--------------------------------
+00 0100 0000 0000 0000 0001 1000 
+Now shift >> 2 positions:
+00 0001 0000 0000 0000 0000 0110  // final answer
+
+
+Which matches to sample above
+00 0001 0000 0000 0000 0001 1000 // j lab1. THIS is what we want
